@@ -70,11 +70,28 @@
 @keyframes user-pulse{0%{transform:translate(-50%,-50%) scale(1);opacity:.6}100%{transform:translate(-50%,-50%) scale(3.5);opacity:0}}
 #location-toast{position:fixed;top:64px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:10px 16px;border-radius:8px;font-size:.82rem;box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:2500;transition:opacity .3s ease, visibility .3s;max-width:90vw;text-align:center;visibility:hidden;opacity:0;pointer-events:none;line-height:1.4}
 #location-toast.show{visibility:visible;opacity:1;pointer-events:auto}
+.rating-row{margin-top:10px;padding-top:8px;border-top:1px solid #eee}
+.rating-label{font-size:.72rem;color:#666;margin-bottom:4px;font-weight:600}
+.fries-rating{display:flex;gap:3px;font-size:1.3rem;user-select:none}
+.fries-rating span{cursor:pointer;filter:grayscale(100%);opacity:.4;transition:.2s}
+.fries-rating span.active{filter:none;opacity:1;transform:scale(1.1)}
+.note-textarea{width:100%;border:1px solid #ddd;border-radius:8px;padding:6px 8px;font-size:.78rem;resize:vertical;min-height:50px;font-family:inherit;box-sizing:border-box}
+.note-textarea:focus{outline:none;border-color:#1976d2}
+.note-saved{font-size:.65rem;color:#2e7d32;margin-top:2px;opacity:0;transition:opacity .3s}
+.note-saved.show{opacity:1}
+#fab-ranking{background:linear-gradient(135deg,#ff6f00,#ff8f00)}
+.rank-item{display:flex;align-items:center;gap:10px;padding:10px 8px;border-bottom:1px solid #f2f2f2}
+.rank-pos{font-size:1.4rem;width:32px;text-align:center;flex-shrink:0}
+.rank-info{flex:1;min-width:0}
+.rank-name{font-size:.92rem;font-weight:600;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank-cat{font-size:.7rem;color:#777}
+.rank-fries{font-size:1.1rem;flex-shrink:0}
+.rank-empty{text-align:center;padding:40px 16px;color:#999;line-height:1.5}
 @media (max-width:768px){
   #header{padding:6px 10px}#header h1{font-size:.92rem}#header .sub{font-size:.58rem}
   #map{height:calc(100vh - 104px)}
   #legend-desktop,#desktop-search,#desktop-fabs{display:none!important}
-  #mobile-bar{display:grid;grid-template-columns:1fr 44px 44px 44px;gap:5px;position:fixed;left:0;right:0;bottom:0;background:#fff;box-shadow:0 -3px 14px rgba(0,0,0,.2);padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:1400;align-items:center}
+  #mobile-bar{display:grid;grid-template-columns:1fr 44px 44px 44px 44px;gap:5px;position:fixed;left:0;right:0;bottom:0;background:#fff;box-shadow:0 -3px 14px rgba(0,0,0,.2);padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:1400;align-items:center}
   #mobile-search-wrap{display:flex;align-items:center;background:#f0f2f6;border-radius:24px;padding:8px 12px;gap:8px;min-width:0}
   #mobile-search-wrap input{flex:1;min-width:0;border:none;background:transparent;outline:none;font-size:.9rem}
   #mobile-search-wrap button{border:none;background:#ddd;border-radius:50%;width:22px;height:22px;font-size:.8rem;display:none;align-items:center;justify-content:center;cursor:pointer}
@@ -91,12 +108,14 @@
 <div id="legend-desktop"><h3>📌 Categorie</h3></div>
 <div id="desktop-fabs">
   <button class="fab" id="fab-transport" title="Trasporti">🚆</button>
+  <button class="fab" id="fab-ranking" title="Classifica Patatine">🏆</button>
   <button class="fab" id="fab-locate" title="Localizzami">📍</button>
 </div>
 <div id="mobile-bar">
   <div id="mobile-search-wrap"><span>🔎</span><input id="msearch" placeholder="Cerca: patatine, pizza, kids..."/><button id="mclear">✕</button></div>
   <button class="fab mbtn" id="mbtn-cat" style="background:linear-gradient(135deg,#5e35b1,#7e57c2)">📌</button>
   <button class="fab mbtn" id="mbtn-transport" style="background:linear-gradient(135deg,#0277bd,#0288d1)">🚆</button>
+  <button class="fab mbtn" id="mbtn-rank" style="background:linear-gradient(135deg,#ff6f00,#ff8f00)">🏆</button>
   <button class="fab mbtn" id="mbtn-locate" style="background:linear-gradient(135deg,#1976d2,#42a5f5)">📍</button>
 </div>
 <div id="results-panel">
@@ -215,6 +234,11 @@
 <p>❌ Usare GVB pass per treni (NON valido)</p>
 </div></div>
 </div>
+<div class="sheet" id="rank-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><h2>🏆 Classifica Patatine 🍟</h2><button class="sheet-close" data-close="rank-sheet">✕</button></div>
+  <div class="sheet-content" id="rank-list"></div>
+</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
@@ -244,6 +268,12 @@ function buildPopup(m,catName,catData){
   h += `<a href="https://www.google.com/maps/search/${encodeURIComponent(m.name+' Amsterdam')}" target="_blank" class="gmaps-photo">📷 Maps</a>`;
   h += `<a href="https://www.google.com/maps/dir/?api=1&destination=${m.lat},${m.lon}" target="_blank" class="navigate">🧭 Naviga</a>`;
   h += `</div></div>`;
+const safe=m.name.replace(/[^a-zA-Z0-9]/g,'_');
+const r=parseInt(localStorage.getItem('ams_rating_'+safe)||'0');
+const note=(localStorage.getItem('ams_note_'+safe)||'').replace(/</g,'&lt;');
+h+=`<div class="rating-row"><div class="rating-label">🍟 Voto di Lulù</div><div class="fries-rating" data-safe="${safe}">`;
+for(let i=1;i<=5;i++) h+=`<span data-val="${i}" class="${i<=r?'active':''}">🍟</span>`;
+h+=`</div></div><div class="rating-row" style="border:none;padding-top:0;margin-top:6px"><div class="rating-label">📝 Note di Lulù</div><textarea class="note-textarea" data-safe="${safe}" placeholder="Aggiungi una nota...">${note}</textarea><div class="note-saved">💾 Salvato</div></div>`;
   return h;
 }
 
@@ -426,7 +456,12 @@ window.addEventListener('load', function(){
     }, 1500);
   }
 });
+map.on('popupopen',function(e){setTimeout(function(){const p=e.popup.getElement();if(!p)return;const fr=p.querySelector('.fries-rating');if(fr&&!fr.dataset.wired){fr.dataset.wired='1';const safe=fr.dataset.safe;fr.querySelectorAll('span').forEach(function(s){s.onclick=function(){const v=parseInt(s.dataset.val);const c=parseInt(localStorage.getItem('ams_rating_'+safe)||'0');const nv=(v===c)?0:v;localStorage.setItem('ams_rating_'+safe,nv);fr.querySelectorAll('span').forEach(function(ss){ss.classList.toggle('active',parseInt(ss.dataset.val)<=nv)});updateRanking();};});}const ta=p.querySelector('.note-textarea');if(ta&&!ta.dataset.wired){ta.dataset.wired='1';const safe=ta.dataset.safe;const sv=p.querySelector('.note-saved');ta.onblur=function(){localStorage.setItem('ams_note_'+safe,ta.value);if(sv){sv.classList.add('show');setTimeout(function(){sv.classList.remove('show');},1500);}};}},50);});
 
-buildData(); renderLegend(); applyFilters();
+function updateRanking(){const list=document.getElementById('rank-list');if(!list)return;const arr=[];for(const cn in mapData){const cd=mapData[cn];cd.markers.forEach(function(m){const safe=m.name.replace(/[^a-zA-Z0-9]/g,'_');const r=parseInt(localStorage.getItem('ams_rating_'+safe)||'0');if(r>0)arr.push({name:m.name,cat:cn,icon:cd.icon,rating:r});});}arr.sort(function(a,b){return b.rating-a.rating||a.name.localeCompare(b.name);});if(arr.length===0){list.innerHTML='<div class="rank-empty">Nessun voto ancora!<br><br>Tocca le 🍟 nei popup per dare<br>il tuo voto a Lulù! 😊</div>';return;}list.innerHTML=arr.map(function(p,i){const m=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);return '<div class="rank-item"><div class="rank-pos">'+m+'</div><div class="rank-info"><div class="rank-name">'+p.icon+' '+p.name+'</div><div class="rank-cat">'+p.cat+'</div></div><div class="rank-fries">'+'🍟'.repeat(p.rating)+'</div></div>';}).join('');}
+
+document.getElementById('fab-ranking').onclick=function(){updateRanking();openSheet('rank-sheet');};
+document.getElementById('mbtn-rank').onclick=function(){updateRanking();openSheet('rank-sheet');};
+buildData(); renderLegend(); applyFilters(); updateRanking();
 </script>
 </body></html>
